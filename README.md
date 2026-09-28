@@ -11,7 +11,8 @@ have landed on a real field.
 |---|---|
 | OAK-D S2 PoE | Two global shutter mono cameras at 120 fps for tracking the ball. Color camera is only used for the optional swing feature. |
 | Raspberry Pi 5, 8GB, with active cooler | Always on box in the garage that runs the tracker. A laptop works too. |
-| PoE injector or PoE switch | Powers the camera. The Pi can't. |
+| Gigabit 802.3af PoE injector, like the TP-Link TL-POE150S | Powers the camera. Must be gigabit (10/100 ones are too slow) and 802.3af, not passive PoE. Rated 32 to 104°F, so keep it indoors if the garage gets extreme. |
+| M12 X-coded 8 pin to RJ45 cable | The camera has a round industrial connector, not a normal network jack. |
 | NVMe hat and drive (optional) | Only needed if you want to save swing video. |
 
 ## How it works

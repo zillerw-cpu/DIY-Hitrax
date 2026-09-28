@@ -38,20 +38,75 @@ In `config.toml`:
 
 * `swing_tracking`: experimental. Body pose on the color camera plus swing clips. Off by default since it shares bandwidth with ball tracking.
 
+## Getting started on a Windows PC
+
+Use **VS Code**, not Visual Studio. They share a name, but Visual Studio is the
+big one built for C# and C++. VS Code is free, lighter, and what most Python
+work is done in.
+
+### One time setup
+
+1. Install **Python 3.12** from python.org. On the first installer screen, check **Add python.exe to PATH**.
+2. Install **VS Code** and **Git for Windows**.
+3. In VS Code, open the Extensions panel, search **Python**, and install the one by Microsoft.
+4. Open a terminal in VS Code (**Terminal > New Terminal**) and get the code:
+   ```
+   git clone -b claude/diy-hitrax-golf-monitor-eono6w https://github.com/zillerw-cpu/DIY-Hitrax.git
+   ```
+5. **File > Open Folder** and pick the `DIY-Hitrax` folder.
+6. In a new terminal, set up a Python environment and install everything:
+   ```
+   py -3.12 -m venv .venv
+   .venv\Scripts\activate
+   pip install -e ".[dev]"
+   ```
+   If `activate` says running scripts is disabled, run this once and try again:
+   ```
+   Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+   ```
+
+### Step 1: make sure the code works (no camera needed)
+
+```
+pytest
+python -m hitrax.calc 95 28 -15
+```
+
+Tests should all pass, and the calculator prints carry, apex and hang time.
+
+### Step 2: hook up the camera
+
+1. Camera to the **PoE out** port on the injector (or a PoE port on a switch).
+2. Injector **data in** port to the same router or switch your PC is plugged into.
+3. Use a wired connection on the PC. WiFi may not keep up with two cameras at 120 fps.
+
+### Step 3: camera check
+
+```
+python -m hitrax.camera_check
+```
+
+Allow Python through the Windows firewall when it asks. You should see both
+mono cameras side by side. What you want:
+
+| On screen | Good | If not |
+|---|---|---|
+| fps | close to 120 on both | check the PC is wired, not on WiFi |
+| dropped | stays at 0 | same as above |
+| light variation | under 5% with nothing moving in view | your lights likely flicker, try other lights |
+| ball tossed through the view | round, not a streak | press `[` for shorter exposure, `=` for more ISO if it gets dark |
+
+Press `s` to save a snapshot of both cameras to `captures/`, `q` to quit.
+
 ## Status
 
 * [x] Flight model with tests
 * [x] Config with feature toggles
-* [ ] Camera capture and cropping
+* [x] Distance calculator (`python -m hitrax.calc`)
+* [x] Camera check with fps, dropped frames, flicker and exposure tuning
+* [ ] Crop to the ball flight band
 * [ ] Contact detection at the tee
 * [ ] Ball detection and stereo triangulation
 * [ ] Calibration routine for the garage layout
 * [ ] Web display and session log
 * [ ] Swing tracking (experimental)
-
-## Running tests
-
-```
-pip install -e ".[dev]"
-pytest
-```

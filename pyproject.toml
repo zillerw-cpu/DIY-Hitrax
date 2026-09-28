@@ -1,0 +1,15 @@
+[project]
+name = "diy-hitrax"
+version = "0.1.0"
+description = "Garage batting tracker for a tee and net using an OAK-D S2 PoE"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools]
+packages = ["hitrax"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

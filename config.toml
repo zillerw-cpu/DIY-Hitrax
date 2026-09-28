@@ -1,0 +1,22 @@
+# DIY HitTrax settings
+
+[features]
+# Experimental. Runs body pose on the color camera and saves swing clips.
+# Off by default because the color stream shares the network link with the
+# ball tracking cameras.
+swing_tracking = false
+
+[field]
+# Conditions for the virtual field the ball "lands" on.
+temperature_f = 70
+elevation_ft = 0
+
+[tee]
+# Height of the ball on the tee, measured to the center of the ball.
+contact_height_in = 30
+
+[spin]
+# The camera can't see spin, so backspin is guessed from launch angle:
+# rpm = base_rpm + rpm_per_degree * launch_angle
+base_rpm = 1000
+rpm_per_degree = 50

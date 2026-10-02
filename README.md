@@ -47,7 +47,9 @@ work is done in.
 
 ### One time setup
 
-1. Install **Python 3.12** from python.org. On the first installer screen, check **Add python.exe to PATH**.
+1. You need **Python 3.11 or newer**. Run `py -0` in a terminal to see what you have. If nothing
+   3.11 or newer shows up, install **Python 3.12** from python.org and check **Add python.exe to PATH**
+   on the first installer screen.
 2. Install **VS Code** and **Git for Windows**.
 3. In VS Code, open the Extensions panel, search **Python**, and install the one by Microsoft.
 4. Open a terminal in VS Code (**Terminal > New Terminal**) and get the code:
@@ -55,7 +57,8 @@ work is done in.
    git clone -b claude/diy-hitrax-golf-monitor-eono6w https://github.com/zillerw-cpu/DIY-Hitrax.git
    ```
 5. **File > Open Folder** and pick the `DIY-Hitrax` folder.
-6. In a new terminal, set up a Python environment and install everything:
+6. In a new terminal, set up a Python environment and install everything. Run these one
+   at a time, and if `py -0` showed a different version like 3.13, use that number instead of 3.12:
    ```
    py -3.12 -m venv .venv
    .venv\Scripts\activate

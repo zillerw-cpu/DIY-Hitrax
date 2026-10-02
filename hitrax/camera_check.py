@@ -33,12 +33,19 @@ MIN_ISO, MAX_ISO = 100, 1600
 # 80 mph in mm per microsecond, used to show how much a ball smears
 BALL_MM_PER_US = 80 * 0.44704 / 1000
 
-NO_DEVICE_HELP = """
+# Where the camera puts itself when there's no router handing out addresses,
+# which is the case when it's plugged straight into the PC.
+FALLBACK_IP = "169.254.1.222"
+
+NO_DEVICE_HELP = f"""
 No OAK camera found. Things to check:
-  1. The PoE injector or switch port is powering the camera
-  2. The camera and this computer are on the same network
-  3. Windows firewall is allowing Python (it pops up a prompt the first time)
-  4. Give it 20 to 30 seconds after plugging in, the camera takes a bit to boot
+  1. The PWR light on the injector is on
+  2. Give it a minute after plugging in, the camera takes a bit to boot
+  3. Windows firewall is allowing Python, on Public networks too
+  4. Plugged straight into the PC? Set the PC's Ethernet adapter to a fixed
+     IP of 169.254.1.10 with subnet mask 255.255.0.0, then try again
+  5. Going through a router instead? Find the camera in the router's device
+     list and run: python -m hitrax.camera_check --ip <that address>
 """
 
 
@@ -94,15 +101,37 @@ def send_exposure(controls, exposure_us: int, iso: int) -> None:
         q.send(ctrl)
 
 
-def run(width: int, height: int, fps: float, exposure_us: int, iso: int) -> int:
-    devices = dai.Device.getAllAvailableDevices()
-    if not devices:
+def connect(ip: str | None) -> dai.Device | None:
+    """Find the camera by search, or by IP when search comes up empty.
+
+    Windows sometimes blocks the search broadcast on a direct cable, but
+    connecting by address still works.
+    """
+    if ip is None:
+        devices = dai.Device.getAllAvailableDevices()
+        for d in devices:
+            print(f"Found {d.name} ({d.getDeviceId()}) over {d.protocol.name}")
+        if devices:
+            return dai.Device(devices[0])
+        ip = FALLBACK_IP
+        print(f"Search found nothing, trying the direct connect address {ip}")
+    else:
+        print(f"Connecting to {ip}")
+    try:
+        return dai.Device(dai.DeviceInfo(ip))
+    except RuntimeError:
+        return None
+
+
+def run(
+    width: int, height: int, fps: float, exposure_us: int, iso: int, ip: str | None = None
+) -> int:
+    device = connect(ip)
+    if device is None:
         print(NO_DEVICE_HELP)
         return 1
-    for d in devices:
-        print(f"Found {d.name} ({d.getDeviceId()}) over {d.protocol.name}")
 
-    with dai.Pipeline() as pipeline:
+    with device, dai.Pipeline(device) as pipeline:
         queues, controls = [], []
         for socket in (dai.CameraBoardSocket.CAM_B, dai.CameraBoardSocket.CAM_C):
             cam = pipeline.create(dai.node.Camera).build(socket, sensorFps=fps)
@@ -166,8 +195,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--fps", type=float, default=120)
     p.add_argument("--exposure-us", type=int, default=500)
     p.add_argument("--iso", type=int, default=800)
+    p.add_argument("--ip", help=f"connect to this address instead of searching, like {FALLBACK_IP}")
     args = p.parse_args(argv)
-    return run(args.width, args.height, args.fps, args.exposure_us, args.iso)
+    return run(args.width, args.height, args.fps, args.exposure_us, args.iso, args.ip)
 
 
 if __name__ == "__main__":

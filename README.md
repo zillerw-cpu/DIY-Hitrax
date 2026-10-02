@@ -77,9 +77,23 @@ Tests should all pass, and the calculator prints carry, apex and hang time.
 
 ### Step 2: hook up the camera
 
-1. Camera to the **PoE out** port on the injector (or a PoE port on a switch).
-2. Injector **data in** port to the same router or switch your PC is plugged into.
-3. Use a wired connection on the PC. WiFi may not keep up with two cameras at 120 fps.
+Plugging straight into the PC is the best setup. The camera gets the whole
+gigabit link to itself.
+
+1. Camera to the **PoE out** port on the injector.
+2. Injector **data in** port to the PC's Ethernet port.
+3. Give it about a minute. With no router handing out addresses, the camera
+   falls back to `169.254.1.222` and Windows picks its own address in the same range.
+4. Check the link is actually gigabit: **Settings > Network & internet > Ethernet**,
+   look at **Link speed**. It should say 1000/1000. If it says 100/100, swap the
+   patch cable for a Cat5e or Cat6 one.
+
+The PC's internet will go over WiFi while the Ethernet port is used by the camera.
+
+If the camera check can't find the camera, give the PC a fixed address on that port:
+**Settings > Network & internet > Ethernet > IP assignment > Edit > Manual**, turn on
+IPv4, IP address `169.254.1.10`, subnet mask `255.255.0.0` (or prefix length `16`),
+leave gateway and DNS blank.
 
 ### Step 3: camera check
 
@@ -87,12 +101,13 @@ Tests should all pass, and the calculator prints carry, apex and hang time.
 python -m hitrax.camera_check
 ```
 
-Allow Python through the Windows firewall when it asks. You should see both
+Allow Python through the Windows firewall when it asks, and check both
+**Private** and **Public**, since a direct cable shows up as a public network. You should see both
 mono cameras side by side. What you want:
 
 | On screen | Good | If not |
 |---|---|---|
-| fps | close to 120 on both | check the PC is wired, not on WiFi |
+| fps | close to 120 on both | check link speed says 1000 |
 | dropped | stays at 0 | same as above |
 | light variation | under 5% with nothing moving in view | your lights likely flicker, try other lights |
 | ball tossed through the view | round, not a streak | press `[` for shorter exposure, `=` for more ISO if it gets dark |

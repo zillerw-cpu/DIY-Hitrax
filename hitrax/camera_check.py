@@ -43,7 +43,7 @@ FALLBACK_IP = "169.254.1.222"
 # Sizes the mono sensors can output directly, no resizing needed
 NATIVE_MODES = {(1280, 800), (1280, 720), (640, 400)}
 
-NO_DEVICE_HELP = f"""
+NO_DEVICE_HELP = """
 No OAK camera found. Things to check:
   1. The PWR light on the injector is on
   2. Give it a minute after plugging in, the camera takes a bit to boot
@@ -107,22 +107,23 @@ def send_exposure(controls, exposure_us: int, iso: int) -> None:
         q.send(ctrl)
 
 
-def connect(ip: str | None) -> dai.Device | None:
+def connect(ip: str | None, verbose: bool = True) -> dai.Device | None:
     """Find the camera by search, or by IP when search comes up empty.
 
     Windows sometimes blocks the search broadcast on a direct cable, but
     connecting by address still works.
     """
+    say = print if verbose else (lambda *a: None)
     if ip is None:
         devices = dai.Device.getAllAvailableDevices()
         for d in devices:
-            print(f"Found {d.name} ({d.getDeviceId()}) over {d.protocol.name}")
+            say(f"Found {d.name} ({d.getDeviceId()}) over {d.protocol.name}")
         if devices:
             return dai.Device(devices[0])
         ip = FALLBACK_IP
-        print(f"Search found nothing, trying the direct connect address {ip}")
+        say(f"Search found nothing, trying the direct connect address {ip}")
     else:
-        print(f"Connecting to {ip}")
+        say(f"Connecting to {ip}")
     try:
         return dai.Device(dai.DeviceInfo(ip))
     except RuntimeError:

@@ -128,6 +128,14 @@ python -m hitrax.camera_check --no-preview --cameras 1
 The first rules out the preview window, the second shows whether it's the
 total amount of data or something per camera.
 
+To try several streaming setups in one go and get a single table back:
+
+```
+python -m hitrax.bench
+```
+
+It takes about 3 minutes since the camera reboots between setups.
+
 ## Status
 
 * [x] Flight model with tests

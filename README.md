@@ -115,7 +115,18 @@ mono cameras side by side. What you want:
 | light variation | under 5% with nothing moving in view | your lights likely flicker, try other lights |
 | ball tossed through the view | round, not a streak | press `[` for shorter exposure, `=` for more ISO if it gets dark |
 
-Press `s` to save a snapshot of both cameras to `captures/`, `q` to quit.
+Press `s` to save a snapshot of both cameras to `captures/`, `q` to quit. The same
+numbers print in the terminal every 2 seconds so they're easy to copy.
+
+If fps is low, these two runs narrow down where frames are getting lost:
+
+```
+python -m hitrax.camera_check --no-preview
+python -m hitrax.camera_check --no-preview --cameras 1
+```
+
+The first rules out the preview window, the second shows whether it's the
+total amount of data or something per camera.
 
 ## Status
 

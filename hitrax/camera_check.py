@@ -11,6 +11,9 @@ Keys:
     s     save a snapshot of both cameras to captures/
     q     quit
 
+Numbers also print to the terminal every 2 seconds. Add --no-preview to skip
+the window, or --cameras 1 to run just the left camera.
+
 What to look for:
     * fps close to 120 on both cameras with dropped staying at 0
     * light variation under about 5%, higher usually means the lights flicker
@@ -36,6 +39,9 @@ BALL_MM_PER_US = 80 * 0.44704 / 1000
 # Where the camera puts itself when there's no router handing out addresses,
 # which is the case when it's plugged straight into the PC.
 FALLBACK_IP = "169.254.1.222"
+
+# Sizes the mono sensors can output directly, no resizing needed
+NATIVE_MODES = {(1280, 800), (1280, 720), (640, 400)}
 
 NO_DEVICE_HELP = f"""
 No OAK camera found. Things to check:
@@ -124,65 +130,100 @@ def connect(ip: str | None) -> dai.Device | None:
 
 
 def run(
-    width: int, height: int, fps: float, exposure_us: int, iso: int, ip: str | None = None
+    width: int,
+    height: int,
+    fps: float,
+    exposure_us: int,
+    iso: int,
+    ip: str | None = None,
+    cameras: int = 2,
+    preview: bool = True,
 ) -> int:
     device = connect(ip)
     if device is None:
         print(NO_DEVICE_HELP)
         return 1
 
+    names = ("LEFT", "RIGHT")[:cameras]
+    sockets = (dai.CameraBoardSocket.CAM_B, dai.CameraBoardSocket.CAM_C)[:cameras]
+    # Asking the sensor for the exact size we want avoids a resize step on the
+    # camera, which can't keep up at 120 fps.
+    sensor_res = (width, height) if (width, height) in NATIVE_MODES else None
+
     with device, dai.Pipeline(device) as pipeline:
+        # Send each frame as one packet instead of 64 KB pieces, faster over PoE.
+        pipeline.setXLinkChunkSize(0)
         queues, controls = [], []
-        for socket in (dai.CameraBoardSocket.CAM_B, dai.CameraBoardSocket.CAM_C):
-            cam = pipeline.create(dai.node.Camera).build(socket, sensorFps=fps)
+        for socket in sockets:
+            cam = pipeline.create(dai.node.Camera).build(
+                socket, sensorResolution=sensor_res, sensorFps=fps
+            )
             cam.initialControl.setManualExposure(exposure_us, iso)
             out = cam.requestOutput((width, height), type=dai.ImgFrame.Type.GRAY8, fps=fps)
             queues.append(out.createOutputQueue(maxSize=int(fps), blocking=False))
             controls.append(cam.inputControl.createInputQueue())
 
         pipeline.start()
-        stats = [Stats(), Stats()]
-        latest = [None, None]
+        stats = [Stats() for _ in names]
+        latest = [None for _ in names]
         CAPTURE_DIR.mkdir(exist_ok=True)
+        next_print = time.monotonic() + 2
+        if not preview:
+            print("Running without a preview window, press Ctrl+C to stop")
 
-        while pipeline.isRunning():
-            # Drain everything so fps and dropped reflect the camera, not
-            # how fast the preview window redraws.
-            for i, q in enumerate(queues):
-                for frame in q.tryGetAll():
-                    stats[i].add(frame)
-                    latest[i] = frame
+        try:
+            while pipeline.isRunning():
+                # Drain everything so fps and dropped reflect the camera, not
+                # how fast the preview window redraws.
+                for i, q in enumerate(queues):
+                    for frame in q.tryGetAll():
+                        stats[i].add(frame)
+                        latest[i] = frame
 
-            if all(f is not None for f in latest):
-                left = overlay(latest[0].getFrame(), "LEFT", stats[0], fps)
-                right = overlay(latest[1].getFrame(), "RIGHT", stats[1], fps)
-                view = cv2.hconcat([left, right])
-                blur_mm = exposure_us * BALL_MM_PER_US
-                cv2.putText(
-                    view,
-                    f"exposure {exposure_us} us  ISO {iso}  blur at 80 mph {blur_mm:.0f} mm"
-                    "   [ ] exposure  - = ISO  s save  q quit",
-                    (10, view.shape[0] - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1,
-                )
-                cv2.imshow("OAK camera check", view)
+                if time.monotonic() >= next_print:
+                    next_print += 2
+                    print("   ".join(
+                        f"{n} {s.fps:5.1f} fps dropped {s.dropped} light {s.light_variation_pct:4.1f}%"
+                        for n, s in zip(names, stats)
+                    ))
 
-            key = cv2.waitKey(1) & 0xFF
-            if key == ord("q"):
-                break
-            if key in (ord("["), ord("]")):
-                factor = 0.5 if key == ord("[") else 2
-                exposure_us = int(min(MAX_EXPOSURE_US, max(MIN_EXPOSURE_US, exposure_us * factor)))
-                send_exposure(controls, exposure_us, iso)
-            elif key in (ord("-"), ord("=")):
-                factor = 0.5 if key == ord("-") else 2
-                iso = int(min(MAX_ISO, max(MIN_ISO, iso * factor)))
-                send_exposure(controls, exposure_us, iso)
-            elif key == ord("s") and all(f is not None for f in latest):
-                stamp = time.strftime("%Y%m%d_%H%M%S")
-                for name, f in zip(("left", "right"), latest):
-                    path = CAPTURE_DIR / f"{stamp}_{name}.png"
-                    cv2.imwrite(str(path), f.getFrame())
-                    print(f"saved {path}")
+                if not preview:
+                    time.sleep(0.002)
+                    continue
+
+                if all(f is not None for f in latest):
+                    view = cv2.hconcat([
+                        overlay(f.getFrame(), n, s, fps)
+                        for f, n, s in zip(latest, names, stats)
+                    ])
+                    blur_mm = exposure_us * BALL_MM_PER_US
+                    cv2.putText(
+                        view,
+                        f"exposure {exposure_us} us  ISO {iso}  blur at 80 mph {blur_mm:.0f} mm"
+                        "   [ ] exposure  - = ISO  s save  q quit",
+                        (10, view.shape[0] - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1,
+                    )
+                    cv2.imshow("OAK camera check", view)
+
+                key = cv2.waitKey(1) & 0xFF
+                if key == ord("q"):
+                    break
+                if key in (ord("["), ord("]")):
+                    factor = 0.5 if key == ord("[") else 2
+                    exposure_us = int(min(MAX_EXPOSURE_US, max(MIN_EXPOSURE_US, exposure_us * factor)))
+                    send_exposure(controls, exposure_us, iso)
+                elif key in (ord("-"), ord("=")):
+                    factor = 0.5 if key == ord("-") else 2
+                    iso = int(min(MAX_ISO, max(MIN_ISO, iso * factor)))
+                    send_exposure(controls, exposure_us, iso)
+                elif key == ord("s") and all(f is not None for f in latest):
+                    stamp = time.strftime("%Y%m%d_%H%M%S")
+                    for n, f in zip(names, latest):
+                        path = CAPTURE_DIR / f"{stamp}_{n.lower()}.png"
+                        cv2.imwrite(str(path), f.getFrame())
+                        print(f"saved {path}")
+        except KeyboardInterrupt:
+            pass
 
     cv2.destroyAllWindows()
     return 0
@@ -196,8 +237,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--exposure-us", type=int, default=500)
     p.add_argument("--iso", type=int, default=800)
     p.add_argument("--ip", help=f"connect to this address instead of searching, like {FALLBACK_IP}")
+    p.add_argument("--cameras", type=int, choices=(1, 2), default=2,
+                   help="1 runs only the left camera, handy for finding speed limits")
+    p.add_argument("--no-preview", action="store_true",
+                   help="skip the window and just print numbers")
     args = p.parse_args(argv)
-    return run(args.width, args.height, args.fps, args.exposure_us, args.iso, args.ip)
+    return run(
+        args.width, args.height, args.fps, args.exposure_us, args.iso, args.ip,
+        cameras=args.cameras, preview=not args.no_preview,
+    )
 
 
 if __name__ == "__main__":

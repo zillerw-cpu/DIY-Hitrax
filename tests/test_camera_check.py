@@ -41,3 +41,12 @@ def test_flicker_shows_as_light_variation():
     for i in range(60):
         s.add(make_frame(i, i / 120, 100 if i % 2 else 80))
     assert s.light_variation_pct > 15
+
+
+def test_sensor_fps_counts_frames_that_never_arrived():
+    s = Stats()
+    # camera shoots 120 fps but only every third frame makes it to the PC
+    for seq in range(0, 121, 3):
+        s.add(make_frame(seq, seq / 120, 100))
+    assert s.fps == pytest.approx(40)
+    assert s.sensor_fps == pytest.approx(120)

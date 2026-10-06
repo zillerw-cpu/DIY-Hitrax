@@ -5,7 +5,7 @@ see which way of streaming holds 120 fps on this PC and network.
 
     python -m hitrax.bench
 
-Takes about 3 minutes. The camera reboots between setups, so expect a pause
+Takes about 3 to 4 minutes. The camera reboots between setups, so expect a pause
 before each line.
 """
 
@@ -61,6 +61,9 @@ TRIALS = [
     Trial("2 cam @120 paired mss", 2, VGA, 120, paired=True, pair_on_mss=True),
     Trial("2 cam @120 paired mss jumbo", 2, VGA, 120, paired=True, pair_on_mss=True, mtu=9000),
     Trial("1 cam @120 jumbo", 1, VGA, 120, mtu=9000),
+    # With the net only 4 to 5 ft out, more fps means more frames of flight.
+    # This one is expected to drop a lot, it checks the sensors keep up at 240.
+    Trial("2 cam @240 jumbo", 2, VGA, 240, mtu=9000),
 ]
 
 
@@ -145,7 +148,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--ip", help="connect to this address instead of searching")
     args = p.parse_args(argv)
 
-    header = f"{'setup':<30}{'fps L / R':>16}{'dropped L / R':>17}{'camera CPU css / mss':>23}"
+    header = (
+        f"{'setup':<30}{'fps L / R':>16}{'dropped L / R':>17}"
+        f"{'camera CPU css / mss':>23}{'sensor fps':>12}"
+    )
     first = True
     for trial in TRIALS:
         device = connect_with_retry(args.ip, trial.device_config())
@@ -165,7 +171,11 @@ def main(argv: list[str] | None = None) -> int:
                 continue
         fps = " / ".join(f"{s.fps:5.1f}" for s in stats)
         dropped = " / ".join(f"{s.dropped:4d}" for s in stats)
-        print(f"{trial.label:<30}{fps:>16}{dropped:>17}{css:>14.0f}% / {mss:3.0f}%", flush=True)
+        sensor = sum(s.sensor_fps for s in stats) / len(stats)
+        print(
+            f"{trial.label:<30}{fps:>16}{dropped:>17}{css:>14.0f}% / {mss:3.0f}%{sensor:>12.0f}",
+            flush=True,
+        )
     return 0
 
 

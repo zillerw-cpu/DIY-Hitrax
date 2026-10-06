@@ -38,10 +38,26 @@ What it tells us:
   also ran on css.
 * The other processor (mss) is mostly idle at 12 to 14%.
 
+## What the 4 to 5 ft net means
+
+The ball covers 4.5 ft in about 38 ms at 80 mph. That's only about 4 to 5
+frames at 120 fps, and the first one or two may have the bat in the way. At
+60 fps it's 2 frames, which isn't enough. So 120 fps is the floor and more is
+better. The 640x400 mode goes to 256 fps, so 240 is on the table.
+
+Two cameras at 240 is 480 frames a second, several times what css can send.
+Even if round 2 helps a lot, live streaming everything won't get there. The
+likely design is burst capture: the camera holds the last fraction of a
+second in its own memory and sends just the swing after contact.
+
+The short distance helps accuracy though. At about 4 ft from the lane, one
+pixel is about 3 mm, and stereo depth is good to a couple of cm.
+
 ## Round 2 (pending)
 
 Tries to make each frame cheaper for css to send: jumbo network packets,
-Nagle on, and running the pairing on mss instead.
+Nagle on, and running the pairing on mss instead. Also checks both sensors
+keep up at 240 fps (the sensor fps column counts frames that never arrived).
 
 Jumbo packets need the PC side turned on too, otherwise the camera falls back
 to normal size packets:

@@ -60,6 +60,7 @@ class Stats:
 
     def __init__(self, window: int = 240):
         self.times: collections.deque[float] = collections.deque(maxlen=window)
+        self.seqs: collections.deque[int] = collections.deque(maxlen=window)
         self.brightness: collections.deque[float] = collections.deque(maxlen=window)
         self.last_seq: int | None = None
         self.dropped = 0
@@ -70,6 +71,7 @@ class Stats:
             self.dropped += seq - self.last_seq - 1
         self.last_seq = seq
         self.times.append(frame.getTimestampDevice().total_seconds())
+        self.seqs.append(seq)
         self.brightness.append(float(frame.getFrame().mean()))
 
     @property
@@ -77,6 +79,13 @@ class Stats:
         if len(self.times) < 2 or self.times[-1] == self.times[0]:
             return 0.0
         return (len(self.times) - 1) / (self.times[-1] - self.times[0])
+
+    @property
+    def sensor_fps(self) -> float:
+        """How fast the camera is actually shooting, counting frames that never arrived."""
+        if len(self.times) < 2 or self.times[-1] == self.times[0]:
+            return 0.0
+        return (self.seqs[-1] - self.seqs[0]) / (self.times[-1] - self.times[0])
 
     @property
     def light_variation_pct(self) -> float:

@@ -107,25 +107,31 @@ def send_exposure(controls, exposure_us: int, iso: int) -> None:
         q.send(ctrl)
 
 
-def connect(ip: str | None, verbose: bool = True) -> dai.Device | None:
+def connect(
+    ip: str | None, verbose: bool = True, config: dai.Device.Config | None = None
+) -> dai.Device | None:
     """Find the camera by search, or by IP when search comes up empty.
 
     Windows sometimes blocks the search broadcast on a direct cable, but
     connecting by address still works.
     """
     say = print if verbose else (lambda *a: None)
+
+    def open_device(info: dai.DeviceInfo) -> dai.Device:
+        return dai.Device(info) if config is None else dai.Device(config, info)
+
     if ip is None:
         devices = dai.Device.getAllAvailableDevices()
         for d in devices:
             say(f"Found {d.name} ({d.getDeviceId()}) over {d.protocol.name}")
         if devices:
-            return dai.Device(devices[0])
+            return open_device(devices[0])
         ip = FALLBACK_IP
         say(f"Search found nothing, trying the direct connect address {ip}")
     else:
         say(f"Connecting to {ip}")
     try:
-        return dai.Device(dai.DeviceInfo(ip))
+        return open_device(dai.DeviceInfo(ip))
     except RuntimeError:
         return None
 
